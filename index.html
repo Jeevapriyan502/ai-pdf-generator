@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI PDF Generator</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 400px; margin: 40px auto; }
+    input, textarea, button { width: 100%; margin: 8px 0; padding: 8px; }
+    #logout { margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h2>Login</h2>
+  <form id="login-form">
+    <input type="text" id="username" placeholder="Username" required />
+    <input type="password" id="password" placeholder="Password" required />
+    <button type="submit">Login</button>
+  </form>
+  <button id="logout" style="display:none;">Logout</button>
+
+  <h2>Generate PDF</h2>
+  <form id="pdf-form">
+    <textarea id="content" rows="6" placeholder="Enter your content here..."></textarea>
+    <button type="submit">Generate PDF</button>
+  </form>
+
+  <script>
+    const loginForm = document.getElementById('login-form');
+    const pdfForm = document.getElementById('pdf-form');
+    const logoutBtn = document.getElementById('logout');
+
+    function setLoggedIn(loggedIn) {
+      loginForm.style.display = loggedIn ? 'none' : 'block';
+      logoutBtn.style.display = loggedIn ? 'block' : 'none';
+      pdfForm.style.display = loggedIn ? 'block' : 'none';
+    }
+
+    // Check login state on load
+    setLoggedIn(!!localStorage.getItem('token'));
+
+    loginForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const res = await fetch('http://localhost:3001/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        localStorage.setItem('token', data.token);
+        setLoggedIn(true);
+        alert('Login successful!');
+      } else {
+        alert(data.message || 'Login failed');
+      }
+    };
+
+    logoutBtn.onclick = () => {
+      localStorage.removeItem('token');
+      setLoggedIn(false);
+    };
+
+    pdfForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const content = document.getElementById('content').value;
+      const token = localStorage.getItem('token');
+      if (!token) return alert('You must be logged in!');
+      const res = await fetch('http://localhost:3001/generate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ content })
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'generated.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } else {
+        const data = await res.json();
+        alert(data.message || 'Failed to generate PDF');
+      }
+    };
+  </script>
+</body>
+</html> 
